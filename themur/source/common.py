@@ -5,7 +5,9 @@ from typing import Tuple
 
 import PIL.Image as PImage
 import requests
+from PIL import ExifTags
 from PIL.Image import Image
+from PIL.TiffImagePlugin import IFDRational
 from requests import Session
 
 
@@ -68,6 +70,18 @@ class Source(ABC):
         :rtype: Tuple[Image, Path, dict]
         """
         img, path, meta = self._get_img(kwargs)
+        exif = {}
+        for k, v in img._getexif().items():
+            if k in ExifTags.TAGS:
+                if isinstance(v, bytes):
+                    try:
+                        v = v.decode('utf-8')
+                    except:
+                        raise
+                elif isinstance(v, IFDRational):
+                    v = f"{v.real}+i{v.imag}"
+                exif[ExifTags.TAGS[k]] = v
+        meta['exif'] = exif
         self._cache(img, path, meta)
         self._add_to_history(path, meta, kwargs)
         return img, path, meta

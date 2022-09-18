@@ -1,4 +1,5 @@
 import io
+import random
 from pathlib import Path
 from typing import Tuple
 
@@ -7,6 +8,8 @@ from PIL.Image import Image
 from urllib3.util import Url
 
 from themur.source.common import InternetSource
+
+HIGHEST_PICSUM_LOREM_ID = 1084
 
 
 class PicsumLorem(InternetSource):
@@ -32,6 +35,10 @@ class PicsumLorem(InternetSource):
         :return: A random image, its filename and a dictionary with meta information
         :rtype: Tuple[Image, Path, dict]
         """
+        if width is not None:
+            width = min(5000, width)
+        if height is not None:
+            height = min(5000, height)
         return super(PicsumLorem, self).get_img(**{
             'picsum_id': picsum_id,
             'width': width,
@@ -66,10 +73,20 @@ class PicsumLorem(InternetSource):
     def _get_img(self, options: dict) -> Tuple[Image, Path, dict]:
         height = options.get('height')
         width = options.get('width')
-        if height is None and width is None:
-            raise Exception(f"Needs at least one edge argument")
-        if width is None:
-            raise Exception(f"Needs a width argument")
+        path = ""
+        meta = {}
+        picsum_id = options.get('picsum_id')
+        if height is None and width is None and picsum_id is None:
+            picsum_id = str(random.randint(0, HIGHEST_PICSUM_LOREM_ID))
+            meta = self._get_info(picsum_id)
+            width = meta['width']
+            height = meta['height']
+        if picsum_id is not None:
+            path += f"/id/{picsum_id}"
+        if width is not None:
+            path += f"/{width}"
+        if height is not None:
+            path += f"/{height}"
         query = []
         grayscale = options.get('grayscale')
         if grayscale is not None and grayscale:
@@ -82,10 +99,6 @@ class PicsumLorem(InternetSource):
             else:
                 blur_str = "blur"
             query.append(blur_str)
-        path = f"/{width}/{height}"
-        picsum_id = options.get('picsum_id')
-        if picsum_id is not None:
-            path = f"/id/{picsum_id}{path}"
         url = Url("https", host="picsum.photos", path=path, query='&'.join(query))
         resp = self.session.get(url)
         resp.raise_for_status()
@@ -100,10 +113,8 @@ class PicsumLorem(InternetSource):
             query_str = f"_{'_'.join(query)}"
         name = f"picsum_lorem_{picsum_id}-{width}x{height}{query_str}"
 
-        url = Url("https", host="picsum.photos", path=f"/id/{picsum_id}/info")
-        resp2 = self.session.get(url)
-        resp2.raise_for_status()
-        meta = resp2.json()
+        if len(meta) == 0:
+            meta = self._get_info(picsum_id)
 
         # Modify kwargs for redos
         options.clear()
@@ -111,3 +122,9 @@ class PicsumLorem(InternetSource):
         options['width'] = int(meta['width'])
         options['height'] = int(meta['height'])
         return img, Path(name).with_suffix(suffix), meta
+
+    def _get_info(self, picsum_id: str) -> dict:
+        url = Url("https", host="picsum.photos", path=f"/id/{picsum_id}/info")
+        resp2 = self.session.get(url)
+        resp2.raise_for_status()
+        return resp2.json()
