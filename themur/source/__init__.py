@@ -1,3 +1,3 @@
-from common import Source, InternetSource
-from local import LocalSource
-from picsum_lorem import PicsumLorem
+from themur.source.common import Source, InternetSource
+from themur.source.local import LocalSource
+from themur.source.picsum_lorem import PicsumLorem

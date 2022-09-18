@@ -26,8 +26,8 @@ class Source(ABC):
         self.cache_path = Path('.cache', self.__class__.__name__)
         self.cache_path.mkdir(parents=True, exist_ok=True)
         self.hist_file = self.cache_path / 'stack.json'
-        self.history = self._load_history()
         self.hist_size = hist_size
+        self.history = self._load_history()
 
     def _load_history(self) -> list[str]:
         if self.hist_file.exists():
@@ -84,6 +84,7 @@ class Source(ABC):
         if len(self.history) == 0:
             raise Exception("No entries available in history")
         path, meta, options = self._pop_from_history()
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
         options.update(kwargs)
         return self.get_img(**options)
 

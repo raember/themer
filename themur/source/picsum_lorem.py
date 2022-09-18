@@ -74,15 +74,15 @@ class PicsumLorem(InternetSource):
         grayscale = options.get('grayscale')
         if grayscale is not None and grayscale:
             query.append("grayscale")
-        blur = options.get('blur', 0)
-        if blur > 0:
+        blur = options.get('blur')
+        if blur is not None and blur > 0:
             blur = min(10, blur)
             if blur != 1:
                 blur_str = f"blur={blur}"
             else:
                 blur_str = "blur"
             query.append(blur_str)
-        path = f"/{height}/{width}"
+        path = f"/{width}/{height}"
         picsum_id = options.get('picsum_id')
         if picsum_id is not None:
             path = f"/id/{picsum_id}{path}"
@@ -109,5 +109,5 @@ class PicsumLorem(InternetSource):
         options.clear()
         options['picsum_id'] = picsum_id
         options['width'] = int(meta['width'])
-        options['height'] = int(meta['width'])
+        options['height'] = int(meta['height'])
         return img, Path(name).with_suffix(suffix), meta
