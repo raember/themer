@@ -14,9 +14,15 @@ class LocalSource(Source):
     """
     path: Path
 
-    def __init__(self, path: Path, hist_size: int = 10):
-        super().__init__(hist_size=hist_size)
+    def __init__(self, path: Path | str, cache_home: Path | str):
+        super().__init__(cache_home)
+        if isinstance(path, str):
+            path = Path(path)
         self.path = path
+
+    @property
+    def args(self) -> dict:
+        return {**super().args, 'path': str(self.path)}
 
     def _get_img(self, options: dict) -> Tuple[Image, Path, dict]:
         suffix = options.get('suffix', '.jpg')

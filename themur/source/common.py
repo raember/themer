@@ -12,53 +12,25 @@ from requests import Session
 
 
 class Source(ABC):
+    cache_home: Path
     cache_path: Path
-    hist_file: Path
-    history: list
-    hist_size: int
 
-    def __init__(self, hist_size=10):
+    def __init__(self, cache_home: Path | str):
         """
-        Create an image source with a cache and a history
+        A source for images to be loaded
 
-        :param hist_size: How many history entries to keep
-        :type hist_size: int
+        :param cache_home: The cache home folder
+        :type cache_home: Path | str
         """
-        self.history = []
-        self.cache_path = Path('.cache', self.__class__.__name__)
+        if isinstance(cache_home, str):
+            cache_home = Path(cache_home)
+        self.cache_home = cache_home
+        self.cache_path = self.cache_home / 'cached' / self.__class__.__name__
         self.cache_path.mkdir(parents=True, exist_ok=True)
-        self.hist_file = self.cache_path / 'stack.json'
-        self.hist_size = hist_size
-        self.history = self._load_history()
 
-    def _load_history(self) -> list[str]:
-        if self.hist_file.exists():
-            return json.load(open(self.hist_file))[:self.hist_size]
-        else:
-            return []
-
-    def _save_history(self):
-        json.dump(self.history, open(self.hist_file, 'w'))
-
-    def _add_to_history(self, path: Path, meta: dict, options: dict):
-        if len(self.history) >= self.hist_size:
-            self.history.pop(0)
-        self.history.append({
-            'file': str(path),
-            'meta': meta,
-            'options': options,
-        })
-        self._save_history()
-
-    def _pop_from_history(self) -> Tuple[Path, dict, dict]:
-        if len(self.history) == 0:
-            raise Exception("No entries available in history")
-        entry = self.history.pop()
-        path = Path(entry['file'])
-        meta = entry['meta']
-        options = entry['options']
-        self._save_history()
-        return path, meta, options
+    @property
+    def args(self) -> dict:
+        return {'cache_home': str(self.cache_path)}
 
     def get_img(self, **kwargs) -> Tuple[Image, Path, dict]:
         """
@@ -69,7 +41,7 @@ class Source(ABC):
         :return: A random image, its filename and a dictionary with meta information
         :rtype: Tuple[Image, Path, dict]
         """
-        img, path, meta = self._get_img(kwargs)
+        img, name, meta = self._get_img(kwargs)
         exif = {}
         for k, v in img._getexif().items():
             if k in ExifTags.TAGS:
@@ -82,9 +54,8 @@ class Source(ABC):
                     v = f"{v.real}+i{v.imag}"
                 exif[ExifTags.TAGS[k]] = v
         meta['exif'] = exif
-        self._cache(img, path, meta)
-        self._add_to_history(path, meta, kwargs)
-        return img, path, meta
+        fp = self._cache(img, name, meta)
+        return img, fp, meta
 
     def redo_img(self, **kwargs) -> Tuple[Image, Path, dict]:
         """
@@ -120,15 +91,16 @@ class Source(ABC):
     def _get_img(self, options: dict) -> Tuple[Image, Path, dict]:
         raise NotImplemented('Must be overwritten')
 
-    def _cache(self, img: Image, path: Path, meta: dict):
+    def _cache(self, img: Image, path: Path, meta: dict) -> Path:
         file_path = self.cache_path / path
         img.save(file_path)
         json.dump(meta, open(file_path.with_suffix('.json'), 'w'))
+        return file_path.absolute()
 
 
 class InternetSource(Source, ABC):
     session: Session
 
-    def __init__(self, hist_size=10):
-        super().__init__(hist_size=hist_size)
+    def __init__(self, cache_home: Path | str):
+        super().__init__(cache_home)
         self.session = requests.Session()

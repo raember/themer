@@ -76,8 +76,9 @@ class PicsumLorem(InternetSource):
         path = ""
         meta = {}
         picsum_id = options.get('picsum_id')
-        if height is None and width is None and picsum_id is None:
-            picsum_id = str(random.randint(0, HIGHEST_PICSUM_LOREM_ID))
+        if height is None and width is None:
+            if picsum_id is None:
+                picsum_id = str(random.randint(0, HIGHEST_PICSUM_LOREM_ID))
             meta = self._get_info(picsum_id)
             width = meta['width']
             height = meta['height']
